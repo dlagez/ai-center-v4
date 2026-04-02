@@ -26,3 +26,20 @@ parsers:
     max_retries: 2
     meta:
       export_type: doc_chunks
+
+  - parser_id: ppocr_pdf_ocr_parser
+    parser_name: PPOCR PDF OCR Parser
+    provider_id: ppocr_pdf_ocr_service_provider
+    access_mode: custom_service
+    capability: document_parse
+    enabled: true
+    is_default: false
+    timeout: 60
+    max_retries: 2
+    meta:
+      parser_type: pdf_ocr
+      supported_extensions:
+        - pdf
+      supported_mime_types:
+        - application/pdf
+      description: OCR-only parser for scanned PDF documents

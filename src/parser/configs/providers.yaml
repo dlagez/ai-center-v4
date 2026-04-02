@@ -16,3 +16,17 @@ providers:
     default_config:
       export_type: doc_chunks
       keep_page_meta: true
+
+  - provider_id: ppocr_pdf_ocr_service_provider
+    provider_type: ppocr
+    name: PPOCR PDF OCR Service Provider
+    access_mode: custom_service
+    enabled: true
+    default_config:
+      endpoint: https://prod-ocr.hysz.co:9443/ocr
+      timeout_seconds: 60
+      visualize: false
+      use_textline_orientation: false
+      use_doc_unwarping: false
+      use_doc_orientation_classify: false
+      parser_scope: pdf_ocr
