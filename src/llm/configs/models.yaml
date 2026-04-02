@@ -1,0 +1,25 @@
+models:
+  - model_id: gpt4o_chat
+    model_name: GPT-4o Chat
+    provider_id: openai_default
+    access_mode: litellm
+    capability: chat
+    upstream_model_name: gpt-4o
+    enabled: true
+    is_default: true
+    timeout: 30
+    max_retries: 2
+    meta:
+      supports_vision: true
+
+  - model_id: internal_text_embedding
+    model_name: Internal Text Embedding
+    provider_id: internal_gateway
+    access_mode: openai_gateway
+    capability: embedding
+    upstream_model_name: text-embedding-3-large
+    enabled: true
+    is_default: true
+    timeout: 20
+    max_retries: 2
+    meta: {}
