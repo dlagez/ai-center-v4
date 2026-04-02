@@ -1,0 +1,18 @@
+providers:
+  - provider_id: docling_native_provider
+    provider_type: docling
+    name: Docling Native Provider
+    access_mode: native_sdk
+    enabled: true
+    default_config:
+      enable_ocr: false
+      keep_page_meta: true
+
+  - provider_id: docling_loader_provider
+    provider_type: docling
+    name: Docling Loader Provider
+    access_mode: langchain_loader
+    enabled: true
+    default_config:
+      export_type: doc_chunks
+      keep_page_meta: true

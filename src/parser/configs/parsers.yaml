@@ -1,0 +1,28 @@
+parsers:
+  - parser_id: docling_native_parser
+    parser_name: Docling Native Parser
+    provider_id: docling_native_provider
+    access_mode: native_sdk
+    capability: document_parse
+    enabled: true
+    is_default: true
+    timeout: 60
+    max_retries: 2
+    meta:
+      supported_extensions:
+        - pdf
+        - docx
+        - pptx
+        - html
+
+  - parser_id: docling_loader_parser
+    parser_name: Docling Loader Parser
+    provider_id: docling_loader_provider
+    access_mode: langchain_loader
+    capability: document_parse
+    enabled: true
+    is_default: false
+    timeout: 60
+    max_retries: 2
+    meta:
+      export_type: doc_chunks

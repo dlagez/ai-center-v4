@@ -1,0 +1,510 @@
+# 文档解析接入模块 PRD
+
+## 1. 文档目的
+
+定义 AI 中台的“文档解析接入模块”设计。
+
+本阶段只做文档解析接入层抽象，不实现具体解析逻辑。目标是先把解析器接入模式、适配器接口、统一输出结构、配置方式、注册机制设计清楚，支持后续通过可配置、可插拔的方式接入不同解析器。
+
+本文档主要给代码实现使用，偏工程设计，不展开业务背景说明。
+
+---
+
+## 2. 模块目标
+
+文档解析接入模块需要解决以下问题：
+
+1. 屏蔽不同解析器的接入差异。
+2. 支持多种接入方式，而不是绑定某一种 SDK 或某一个产品。
+3. 通过配置注册解析器，而不是把解析逻辑写死在代码中。
+4. 对上层统一输出标准解析结果。
+5. 上层调用方不关心底层是原生 SDK、LangChain Loader、远程解析服务，还是本地运行时。
+6. 后续可以平滑扩展 OCR、路由、重试、限流、审计、异步任务等能力。
+
+---
+
+## 3. 本期范围
+
+### 3.1 本期做什么
+
+本期只定义以下内容：
+
+- 解析接入方式分类
+- 统一领域模型
+- 统一适配器接口
+- 配置结构
+- 适配器注册机制
+- 解析器注册机制
+- 上层统一调用入口
+- Python 代码骨架
+
+### 3.2 本期不做什么
+
+本期不实现以下内容：
+
+- 具体 Docling 调用逻辑
+- 具体 OCR 实现
+- 图片/VLM 解析
+- 文档解析任务队列
+- 异步批处理
+- 解析器自动路由
+- 重试、熔断、限流策略
+- 配额、计费、审计
+- 管理后台 UI
+
+---
+
+## 4. 设计原则
+
+### 4.1 统一抽象
+
+所有解析器，无论底层来自什么实现，对上层都暴露统一接口。
+
+### 4.2 接入方式与解析器定义解耦
+
+“怎么接”与“接哪个解析器”分开管理。
+
+- Adapter 负责接入方式
+- Parser Profile 负责解析器定义
+
+### 4.3 配置驱动
+
+解析器、接入方式、默认参数都通过配置注册。
+
+### 4.4 可插拔
+
+新增一种接入方式时，只需要新增一个 Adapter，不影响上层调用逻辑。
+
+### 4.5 平台标准独立于具体产品
+
+平台内部统一输出结构不能绑定某个解析器的私有输出格式。
+
+说明：
+
+- 某些解析器可能输出 `DOC_CHUNKS`
+- 某些解析器可能输出 Markdown
+- 某些解析器可能输出结构化 JSON
+- 平台内部统一标准为 **`ParseChunk[]`**
+- 各解析器结果都要映射成 `ParseChunk[]`
+
+---
+
+## 5. 解析接入方式定义
+
+文档解析模块支持以下接入方式。
+
+### 5.1 原生 SDK 接入
+
+说明：
+
+- 直接通过解析器官方 SDK 接入
+- 适合解析器能力最完整的场景
+- 例如后续直接接某个解析器的 Python SDK
+
+标识建议：
+
+- `native_sdk`
+
+---
+
+### 5.2 LangChain Loader 接入
+
+说明：
+
+- 通过 LangChain 的 Document Loader 标准接口接入解析器
+- 适合统一走 LangChain 生态
+- 适合后续和 RAG 流程联动
+
+标识建议：
+
+- `langchain_loader`
+
+---
+
+### 5.3 自定义解析服务接入
+
+说明：
+
+- 对接内部 REST / RPC 文档解析服务
+- 适合企业内部独立解析平台
+
+标识建议：
+
+- `custom_service`
+
+---
+
+### 5.4 本地运行时接入
+
+说明：
+
+- 对接本地部署的解析运行时或服务
+- 平台本地发起调用，不经过外部云服务
+
+标识建议：
+
+- `local_runtime`
+
+---
+
+### 5.5 网关接入
+
+说明：
+
+- 对接统一解析网关
+- 网关后面可以代理多个解析器
+
+标识建议：
+
+- `gateway`
+
+---
+
+## 6. 首期推荐策略
+
+虽然抽象层支持多种模式，但首期建议只先落地两种：
+
+1. `native_sdk`
+2. `langchain_loader`
+
+原因：
+
+- 先把主链路抽象清楚
+- 先完成本地 SDK 与 LangChain 两种典型方式
+- 其他方式后续再接，不影响上层设计
+
+首期默认解析器可以先配置为 Docling，但**平台标准不绑定 Docling 输出格式**。
+
+---
+
+## 7. 统一领域模型
+
+## 7.1 Parser Provider
+
+表示解析服务提供方或解析器来源。
+
+建议字段：
+
+- `provider_id`
+- `provider_type`
+- `name`
+- `access_mode`
+- `enabled`
+- `default_config`
+
+示例：
+
+- `docling`
+- `unstructured`
+- `marker`
+- `internal_parser_service`
+
+---
+
+## 7.2 Access Mode
+
+表示解析器采用什么接入方式。
+
+可选值：
+
+- `native_sdk`
+- `langchain_loader`
+- `custom_service`
+- `local_runtime`
+- `gateway`
+
+---
+
+## 7.3 Parse Capability
+
+表示解析能力类型。
+
+可选值建议：
+
+- `document_parse`
+- `ocr_parse`
+- `table_parse`
+- `image_parse`
+
+首期先只实现：
+
+- `document_parse`
+
+---
+
+## 7.4 Parser Profile
+
+表示平台里的一个“解析器定义”。
+
+建议字段：
+
+- `parser_id`
+- `parser_name`
+- `provider_id`
+- `access_mode`
+- `capability`
+- `enabled`
+- `is_default`
+- `timeout`
+- `max_retries`
+- `meta`
+
+说明：
+
+- `parser_id` 是平台内部统一 ID
+- 上层调用方只依赖 `parser_id`
+- `meta` 里可放支持文件类型、默认导出方式等扩展信息
+
+---
+
+## 7.5 Parse Request
+
+表示一次解析请求。
+
+建议字段：
+
+- `parser_id`
+- `source_type`
+- `source`
+- `file_name`
+- `mime_type`
+- `options`
+- `context`
+
+说明：
+
+### `source_type` 可选值建议
+
+- `file_path`
+- `bytes`
+- `url`
+- `text`
+
+### `options` 用途
+
+放解析参数，例如：
+
+- 是否启用 OCR
+- 是否保留页面信息
+- 是否保留表格信息
+- 是否做 chunk
+- chunk 策略
+- 其他解析器特定参数
+
+### `context` 用途
+
+用于透传上层上下文，例如：
+
+- `tenant_id`
+- `user_id`
+- `request_id`
+- `trace_id`
+- `scene`
+
+---
+
+## 7.6 ParseChunk
+
+这是平台内部统一输出结构，也是平台标准入库结构。
+
+建议字段：
+
+- `chunk_id`
+- `text`
+- `metadata`
+- `page_no`
+- `bbox`
+- `section_title`
+- `chunk_type`
+- `source_ref`
+
+说明：
+
+### 核心字段
+
+- `chunk_id`：chunk 唯一标识
+- `text`：主文本内容，向量化和检索主要使用该字段
+- `metadata`：附加元数据
+- `source_ref`：来源引用，例如文件名、页码范围、元素路径等
+
+### 可选字段
+
+- `page_no`：所在页码
+- `bbox`：位置信息
+- `section_title`：所属章节标题
+- `chunk_type`：例如 `text` / `table` / `title` / `list`
+
+说明：
+
+- 并不是所有解析器都必须返回所有字段
+- 最少需要保证 `chunk_id`、`text`、`metadata`
+
+---
+
+## 7.7 ParseResult
+
+表示统一解析输出。
+
+建议字段：
+
+- `parser_id`
+- `provider_id`
+- `document_id`
+- `chunks`
+- `raw_result`
+- `extra`
+
+说明：
+
+- `chunks` 类型为 `ParseChunk[]`
+- `raw_result` 保留底层原始返回，便于调试
+- `extra` 用于扩展字段
+
+---
+
+## 8. 核心模块设计
+
+## 8.1 Adapter 接口层
+
+作用：
+
+定义统一解析适配器协议，屏蔽不同接入方式差异。
+
+核心职责：
+
+- 根据 Provider 配置和 Parser 配置初始化客户端
+- 接收统一请求对象
+- 返回统一结果对象
+- 屏蔽底层 SDK / HTTP / Loader 差异
+
+首期建议抽象：
+
+- `BaseParserAdapter`
+
+后续如果复杂度上升，再拆为：
+
+- `NativeSdkParserAdapter`
+- `LangChainParserAdapter`
+- `RemoteParserAdapter`
+
+---
+
+## 8.2 Adapter Registry
+
+作用：
+
+管理“接入方式”到“适配器实现类”的映射关系。
+
+示例：
+
+- `native_sdk` -> `NativeSdkAdapter`
+- `langchain_loader` -> `LangChainLoaderAdapter`
+- `custom_service` -> `CustomServiceAdapter`
+
+职责：
+
+- 注册适配器
+- 根据 `access_mode` 查找适配器
+- 支持插件化扩展
+
+---
+
+## 8.3 Provider Registry
+
+作用：
+
+管理解析 Provider 配置。
+
+职责：
+
+- 加载 provider 配置
+- 查询 provider
+- 校验 provider 是否启用
+- 向 adapter 提供 provider 级默认配置
+
+---
+
+## 8.4 Parser Registry
+
+作用：
+
+管理平台解析器定义。
+
+职责：
+
+- 加载 parser 配置
+- 按 `parser_id` 查询解析器
+- 获取默认解析器
+- 校验 parser 与 provider 的关联关系
+
+---
+
+## 8.5 Parse Service
+
+作用：
+
+作为上层统一入口。
+
+上层应用只和 `ParseService` 交互，不直接依赖具体 Adapter。
+
+职责：
+
+1. 接收解析请求
+2. 根据 `parser_id` 查找 `ParserProfile`
+3. 根据 `provider_id` 查找 `ParserProvider`
+4. 根据 `access_mode` 查找 Adapter
+5. 调用 Adapter 执行解析
+6. 返回统一的 `ParseResult`
+
+---
+
+## 9. 统一接口定义
+
+## 9.1 parse 接口
+
+### 输入建议
+
+- `parser_id`
+- `source_type`
+- `source`
+- `file_name`
+- `mime_type`
+- `options`
+- `context`
+
+### 输出建议
+
+- `parser_id`
+- `provider_id`
+- `document_id`
+- `chunks`
+- `raw_result`
+- `extra`
+
+---
+
+## 10. 配置设计
+
+建议使用 YAML 配置。
+
+## 10.1 Provider 配置示例
+
+```yaml
+providers:
+  - provider_id: docling_native_provider
+    provider_type: docling
+    name: Docling Native Provider
+    access_mode: native_sdk
+    enabled: true
+    default_config:
+      enable_ocr: false
+      keep_page_meta: true
+
+  - provider_id: docling_loader_provider
+    provider_type: docling
+    name: Docling Loader Provider
+    access_mode: langchain_loader
+    enabled: true
+    default_config:
+      export_type: doc_chunks
+      keep_page_meta: true
