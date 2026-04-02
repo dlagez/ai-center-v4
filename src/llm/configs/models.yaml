@@ -23,3 +23,27 @@ models:
     timeout: 20
     max_retries: 2
     meta: {}
+
+  - model_id: qwen_plus_chat
+    model_name: Qwen Plus Chat
+    provider_id: qwen_dashscope
+    access_mode: litellm
+    capability: chat
+    upstream_model_name: qwen-plus
+    enabled: true
+    is_default: false
+    timeout: 30
+    max_retries: 2
+    meta: {}
+
+  - model_id: qwen_text_embedding_v4
+    model_name: Qwen Text Embedding V4
+    provider_id: qwen_dashscope
+    access_mode: litellm
+    capability: embedding
+    upstream_model_name: text-embedding-v4
+    enabled: true
+    is_default: false
+    timeout: 30
+    max_retries: 2
+    meta: {}

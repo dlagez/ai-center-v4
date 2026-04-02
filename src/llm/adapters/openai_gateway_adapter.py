@@ -1,6 +1,6 @@
 from ..domain.enums import AccessMode
-from .base import BaseModelAdapter
+from .litellm_adapter import LiteLLMAdapter
 
 
-class OpenAIGatewayAdapter(BaseModelAdapter):
+class OpenAIGatewayAdapter(LiteLLMAdapter):
     access_mode = AccessMode.OPENAI_GATEWAY
